@@ -5,8 +5,8 @@ const {getAssets, getAsset, createAsset, updateAsset, deleteAsset} = require('./
 
 //controller function
 router.get('/', getAssets);
-router.get("/:id", getAsset);
 router.post('/', createAsset);
+router.get("/:id", getAsset);
 router.put("/:id", updateAsset);
 router.delete("/:id", deleteAsset);
 
