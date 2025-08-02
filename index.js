@@ -4,6 +4,7 @@ const Asset = require("./models/asset.model.js"); // Import the Asset model
 const assetRoute = require("./routes/asset.route.js"); // Import the asset routes
 const app = express()
 const port = 3000
+const path = require('path');
 
 // middleware to parse JSON and URL-encoded data
 app.use(express.json());
@@ -14,7 +15,7 @@ app.use("/api/assets", assetRoute);
 
 // Example endpoint to test the server
 app.get('/', (req, res) => {
-  res.send('Hello from Node API Server !!')
+  res.sendFile(path.join(__dirname, 'public', 'index.html'))
 }); 
 
 
