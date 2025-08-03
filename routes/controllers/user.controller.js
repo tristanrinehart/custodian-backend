@@ -1,44 +1,39 @@
-const User = require('../../models/user.model.js'); // Import the User model
-const {validationResult} = require('express-validator')
+const User = require('../../models/user.model.js');
+const { validationResult } = require('express-validator');
+const jwt = require('jsonwebtoken');
 
-// User sign-up endpoint
-// This endpoint creates a new user in the database
-// Re-witten by Chat-GPT
+// Sign up
 const signUp = async (req, res) => {
   const errors = validationResult(req);
-
   if (!errors.isEmpty()) {
-    return res.status(400).json({
-      error: errors.array()[0].msg,
-    });
+    return res.status(400).json({ error: errors.array()[0].msg });
   }
-
-  const { username, email, firstName, lastName, password } = req.body;
-
+  
   try {
-    const user = new User({ username, email, firstName, lastName });
-    user.password = password; // triggers virtual setter
+    const user = new User(req.body)
+
     const savedUser = await user.save();
 
     return res.status(201).json({
       message: "Success",
-      user: savedUser,
+      user: {
+        _id: savedUser._id,
+        username: savedUser.username,
+        email: savedUser.email
+      }
     });
   } catch (err) {
     console.error("Error saving user:", err.message);
-    return res.status(400).json({
-      error: "Unable to add user",
-    });
+    return res.status(400).json({ error: "Unable to add user" });
   }
 };
 
-
-
+// Sign in
 const signIn = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email }).select('+encrypted_password +salt');
+    const user = await User.findOne({ email }).select('+encrypted_password +salt'); // important!
     if (!user) {
       return res.status(401).json({ error: "Email not found" });
     }
@@ -48,9 +43,7 @@ const signIn = async (req, res) => {
       return res.status(401).json({ error: "Email and password do not match" });
     }
 
-    const token = jwt.sign({ _id: user._id }, process.env.SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jwt.sign({ _id: user._id }, process.env.SECRET, { expiresIn: "7d" });
 
     res.cookie("token", token, {
       httpOnly: true,
@@ -61,15 +54,13 @@ const signIn = async (req, res) => {
     const { _id, username, email: userEmail } = user;
     return res.json({
       token,
-      user: { _id, username, email: userEmail },
+      user: { _id, username, email: userEmail }
     });
+
   } catch (err) {
     console.error("Signin error:", err.message);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
 
-module.exports = {
-    signUp,
-    signIn
-};
+module.exports = { signUp, signIn };
