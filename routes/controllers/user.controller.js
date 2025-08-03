@@ -3,6 +3,7 @@ const {validationResult} = require('express-validator')
 
 // User sign-up endpoint
 // This endpoint creates a new user in the database
+// Re-witten by Chat-GPT
 const signUp = async (req, res) => {
   const errors = validationResult(req);
 
@@ -12,9 +13,12 @@ const signUp = async (req, res) => {
     });
   }
 
+  const { username, email, firstName, lastName, password } = req.body;
+
   try {
-    const user = new User(req.body);
-    const savedUser = await user.save(); // modern async/await syntax
+    const user = new User({ username, email, firstName, lastName });
+    user.password = password; // triggers virtual setter
+    const savedUser = await user.save();
 
     return res.status(201).json({
       message: "Success",
@@ -28,6 +32,44 @@ const signUp = async (req, res) => {
   }
 };
 
+
+
+const signIn = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email }).select('+encrypted_password +salt');
+    if (!user) {
+      return res.status(401).json({ error: "Email not found" });
+    }
+
+    const isMatch = user.authenticate(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Email and password do not match" });
+    }
+
+    const token = jwt.sign({ _id: user._id }, process.env.SECRET, {
+      expiresIn: "7d",
+    });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    const { _id, username, email: userEmail } = user;
+    return res.json({
+      token,
+      user: { _id, username, email: userEmail },
+    });
+  } catch (err) {
+    console.error("Signin error:", err.message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 module.exports = {
-    signUp
+    signUp,
+    signIn
 };

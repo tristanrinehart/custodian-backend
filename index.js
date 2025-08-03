@@ -10,6 +10,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 require("dotenv").config();
+mongoose.set('debug', true);
 
 // middleware to parse JSON and URL-encoded data
 app.use(express.json());
