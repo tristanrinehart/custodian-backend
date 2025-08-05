@@ -31,32 +31,36 @@ const signUp = async (req, res) => {
 // Sign in
 const signIn = async (req, res) => {
   const { email, password } = req.body;
-
+  
+  // Validate input
   try {
     const user = await User.findOne({ email }).select('+encrypted_password +salt'); // important!
     if (!user) {
       return res.status(401).json({ error: "Email not found" });
     }
-
+    // Authenticate user
     const isMatch = user.authenticate(password);
     if (!isMatch) {
       return res.status(401).json({ error: "Email and password do not match" });
     }
-
+    // Generate JWT token
     const token = jwt.sign({ _id: user._id }, process.env.SECRET, { expiresIn: "7d" });
-
+    // Set token in cookie
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
+    // Return user data without password
+    // Note: Do not return encrypted_password or salt in the response
+    // Use destructuring to avoid sending sensitive data
     const { _id, username, email: userEmail } = user;
     return res.json({
       token,
       user: { _id, username, email: userEmail }
     });
-
+    // Note: Do not send the password or salt in the response
   } catch (err) {
     console.error("Signin error:", err.message);
     return res.status(500).json({ error: "Internal server error" });
