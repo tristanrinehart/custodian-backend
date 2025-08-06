@@ -45,12 +45,14 @@ const signIn = async (req, res) => {
     }
     // Generate JWT token
     const token = jwt.sign({ _id: user._id }, process.env.SECRET, { expiresIn: "7d" });
+    console.log("Generated token:", token);
     // Set token in cookie
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    })
+    console.log("Token set in cookie");
 
     // Return user data without password
     // Note: Do not return encrypted_password or salt in the response
