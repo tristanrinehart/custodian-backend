@@ -18,7 +18,7 @@ const signUp = async (req, res) => {
       message: "Success",
       user: {
         _id: savedUser._id,
-        username: savedUser.username,
+        //username: savedUser.username,
         email: savedUser.email
       }
     });
@@ -44,23 +44,24 @@ const signIn = async (req, res) => {
       return res.status(401).json({ error: "Email and password do not match" });
     }
     // Generate JWT token
-    const token = jwt.sign({ _id: user._id }, process.env.SECRET, { expiresIn: "7d" });
-    console.log("Generated token:", token);
+    const accessToken = jwt.sign({ _id: user._id }, process.env.SECRET, { expiresIn: "7d" });
+    console.log("Generated token:", accessToken);
     // Set token in cookie
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    })
-    console.log("Token set in cookie");
+    //res.cookie("accessToken", accessToken, {
+    //  httpOnly: true,
+    //  secure: process.env.NODE_ENV === "production",
+    //  maxAge: 7 * 24 * 60 * 60 * 1000,
+    //})
+    //res.json({ accessToken });
+    //console.log("Token set in cookie");
 
     // Return user data without password
     // Note: Do not return encrypted_password or salt in the response
     // Use destructuring to avoid sending sensitive data
-    const { _id, username, email: userEmail } = user;
+    const { _id, email: userEmail } = user;
     return res.json({
-      token,
-      user: { _id, username, email: userEmail }
+      accessToken,
+      user: { _id, email: userEmail }
     });
     // Note: Do not send the password or salt in the response
   } catch (err) {

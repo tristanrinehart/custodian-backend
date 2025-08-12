@@ -8,7 +8,7 @@ const assetSchema = mongoose.Schema(
         },
        userId: {
             type: String,
-            required: true,
+            required: false,
             trim: true
         },
         propertyId: {
