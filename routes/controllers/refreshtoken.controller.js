@@ -1,22 +1,18 @@
 // 3100
 // 
-const usersDB = {
-    users: require('../../models/users.json'),
-    setUsers: function (data) {this.users = data }
-}
-
+const User = require('../../models/user.model.js');
 const jwt = require('jsonwebtoken');
 require('dotenv').config()
 
 
-const handleRefreshToken = (req, res) => {
+const handleRefreshToken = async (req, res) => {
     const cookies = req.cookies;
 
     if (!cookies?.jwt) return res.sendStatus(401)
     console.log(cookies.jwt) // Log the refresh token for debugging
     const refreshToken = cookies.jwt;
 
-    const foundUser = usersDB.users.find(user => user.refreshToken === refreshToken);
+    const foundUser = await User.findOne({ refreshToken: refreshToken }).exec(); // use of exec is a mongoose requirement
     if (!foundUser) return res.sendStatus(403)//look for refresh token match
 
     if (!foundUser) return res.sendStatus(401); // Unauthorized

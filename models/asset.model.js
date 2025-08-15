@@ -107,6 +107,6 @@ const assetSchema = mongoose.Schema(
     }
 );
 
-const Asset = mongoose.model("Asset", assetSchema);
+const Asset = mongoose.model("Asset", assetSchema); //mongoose will look for the plural, lowercase version of the model name, so it will create a collection called "assets"
 
 module.exports = Asset;
