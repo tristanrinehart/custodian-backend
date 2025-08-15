@@ -47,14 +47,15 @@ const signIn = async (req, res) => {
     const accessToken = jwt.sign({ _id: user._id }, process.env.SECRET, { expiresIn: "7d" });
     console.log("Generated token:", accessToken);
     // Set token in cookie
-    //res.cookie("accessToken", accessToken, {
-    //  httpOnly: true,
-    //  secure: process.env.NODE_ENV === "production",
-    //  maxAge: 7 * 24 * 60 * 60 * 1000,
-    //})
-    //res.json({ accessToken });
-    //console.log("Token set in cookie");
-
+    /*
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "dev",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    })
+    res.json({ accessToken });
+    onsole.log("Token set in cookie");
+    */
     // Return user data without password
     // Note: Do not return encrypted_password or salt in the response
     // Use destructuring to avoid sending sensitive data

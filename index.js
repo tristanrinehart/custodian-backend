@@ -11,6 +11,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 require("dotenv").config();
 mongoose.set('debug', true);
+const verifyToken = require('./middleware/auth.middleware');
 
 // middleware to parse JSON and URL-encoded data
 app.use(express.json());
@@ -18,7 +19,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(cookieParser());
 app.use(cors());
-
+app.use(verifyToken);
 
 
 //routes

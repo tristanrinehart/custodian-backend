@@ -95,6 +95,14 @@ const assetSchema = mongoose.Schema(
         assetValue: {
             type: Number,
             required: false,
+        },
+        checked: {
+            type: Boolean,
+            default: false
+        },
+        id: {
+            type: Number,
+            default: false
         }
     }
 );

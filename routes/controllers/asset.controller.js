@@ -65,6 +65,20 @@ const deleteAsset = async (req, res) => {
   }
 };
 
+const deleteAssetNew = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const userId = req.userId; // Assuming user ID is available in req.user
+      const asset = await Asset.findByIdAndDelete(id);
+      if (!asset) {
+          return res.status(404).json({ message: 'Asset not found' });
+      }
+      res.status(200).json({ message: 'Asset deleted successfully' });
+  } catch (error) {
+      res.status(500).json({ message: error.message });
+  }
+};
+
 
 module.exports = {
     getAssets,

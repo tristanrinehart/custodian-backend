@@ -7,7 +7,7 @@ const {getAssets, getAsset, createAsset, updateAsset, deleteAsset} = require('./
 router.get('/', getAssets);
 router.post('/', createAsset);
 router.get("/:id", getAsset);
-router.put("/:id", updateAsset);
+router.patch("/:id", updateAsset);
 router.delete("/:id", deleteAsset);
 
 module.exports = router;
