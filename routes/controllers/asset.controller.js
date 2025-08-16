@@ -5,10 +5,31 @@ const Asset = require('../../models/asset.model.js'); // Import the Asset model
 //Asset listing endpoint
 // This endpoint retrieves all assets from the database
 const getAssets = async (req, res) => {
-  try {
-      const assets = await Asset.find({});
-      if (!assets || assets.length === 0) {
-          return res.status(204).json({ 'message': 'No assets found' });
+    try {
+        
+        const assets = await Asset.find();
+
+        console.log(`getAssets,assets: ${JSON.stringify(assets)}`);
+        if (!assets || assets.length === 0) {
+            console.log(`No assets found`);
+            return res.status(204).end();
+        }
+      res.status(200).json(assets);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+}
+
+const getUserAssets = async (req, res) => {
+    const {userId} = req.params
+    try {
+        const assets = await Asset.find({ userId: userId });
+
+        console.log(`getUserAssets,assets: ${JSON.stringify(assets)}`);
+
+        if (!assets || assets.length === 0) {
+            console.log(`No assets found for user ${userId}`);
+            return res.status(204).json(assets);
         }
       res.status(200).json(assets);
   } catch (error) {
@@ -110,6 +131,7 @@ const deleteAssetNew = async (req, res) => {
 
 module.exports = {
     getAssets,
+    getUserAssets,
     getAsset,
     createAsset,
     updateAsset,
