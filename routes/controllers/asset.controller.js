@@ -1,3 +1,5 @@
+// 3100
+
 const Asset = require('../../models/asset.model.js'); // Import the Asset model
 
 //Asset listing endpoint
@@ -5,6 +7,9 @@ const Asset = require('../../models/asset.model.js'); // Import the Asset model
 const getAssets = async (req, res) => {
   try {
       const assets = await Asset.find({});
+      if (!assets || assets.length === 0) {
+          return res.status(204).json({ 'message': 'No assets found' });
+        }
       res.status(200).json(assets);
   } catch (error) {
       res.status(500).json({ message: error.message });
@@ -38,31 +43,54 @@ const createAsset = async (req, res) => {
 // This endpoint updates a specific asset by its ID
 const updateAsset = async (req, res) => {
   try {
-      const { id } = req.params;
-      const asset = await Asset.findByIdAndUpdate(id, req.body);
-      if (!asset) {
-          return res.status(404).json({ message: 'Asset not found' });
-      }
-      const updatedAsset = await Asset.findById(id);
-      res.status(200).json(updatedAsset);
+    const id = req.body.id; // prefer params
+    const userId = req.body.userId;
+    const submittedAsset = req.body; // prefer params
+    console.log(`submittedAsset: ${JSON.stringify(submittedAsset)}`);
+
+    if (!id) return res.status(400).json({ message: "ID parameter is required" });
+    if (!userId) return res.status(400).json({ message: "userId parameter is required" });
+
+    const foundAsset = await Asset.findOne({ id, userId }).exec();
+    if (!foundAsset) {
+      console.log(`Asset with ID ${id} not found for user ${userId}`);
+      return res.status(404).json({ message: "Asset not found" });
+    }
+
+    Object.assign(foundAsset, submittedAsset); // apply only provided fields
+    console.log(`foundAsset: ${JSON.stringify(foundAsset)}`);
+
+    const result = await foundAsset.save();
+    return res.status(200).json(result);
   } catch (error) {
-      res.status(500).json({ message: error.message });
+        console.error(error);
+        return res.status(500).json({ message: error.message });
   }
 };
-
 //Asset deletion endpoint
 // This endpoint deletes a specific asset by its ID
 const deleteAsset = async (req, res) => {
-  try {
-      const { id } = req.params;
-      const asset = await Asset.findByIdAndDelete(id);
-      if (!asset) {
-          return res.status(404).json({ message: 'Asset not found' });
-      }
-      res.status(200).json({ message: 'Asset deleted successfully' });
-  } catch (error) {
-      res.status(500).json({ message: error.message });
-  }
+    try {
+        console.log(JSON.stringify(req.body));
+        if (!req?.body?.id) {
+            return res.status(400).json({ 'message': 'ID parameter is required' });
+        }
+        if (!req?.body?.userId) {
+            return res.status(400).json({ 'message': 'userId parameter is required' });
+        }
+        const foundAsset = await Asset.findOne({ id: req.body.id, userId: req.body.userId }).exec();
+
+        if (!foundAsset) {
+            return res.status(404).json({ 'message': 'Asset not found' });
+        }
+        console.log(`Deleting ${foundAsset.assetName}...`);
+        // Delete the asset
+
+        const result = await foundAsset.deleteOne();
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ 'message': error.message });
+    }
 };
 
 const deleteAssetNew = async (req, res) => {

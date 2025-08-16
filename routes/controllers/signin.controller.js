@@ -37,7 +37,11 @@ const handleSignIn = async (req, res) => {
             secure: true,
             maxAge: 24 * 60 * 60 * 1000 * 1000// 1000 days
         });
-        res.json({accessToken})
+        res.json(
+            {accessToken, 
+            email: foundUser.email, 
+            userId: foundUser._id
+        }); // Respond with access token and email
     } else {
         res.sendStatus(401); // Unauthorized
     }
