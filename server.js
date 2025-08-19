@@ -14,6 +14,24 @@ const cookieParser = require('cookie-parser')
 const credentials = require('./middleware/credentials');
 const bodyParser = require('body-parser');
 
+//connet to the database
+mongoose.connect(process.env.DATABASE,
+  {
+    //useNewUrlParser: true, //DEPRECATED
+    //useUnifiedTopology: true //DEPRECATED
+  }
+)
+.then(() => {
+  console.log("Connected to MongoDB successfully");
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+})
+.catch((err) => {
+  console.error("Error connecting to MongoDB:", err);
+});
+
+
 // Handle options credentials check - before CORS!
 // and fetch cookies credentials requirement
 app.use(credentials);
@@ -35,12 +53,6 @@ app.use(cookieParser());
 //routes
 app.use('/api/assets', require('./routes/asset.route.js'));
 app.use('/api/users', require('./routes/user.route.js'));
-/*
-app.use('/signup', require('./routes/signup.route.js'));
-app.use('/signin', require('./routes/signin.route.js'));
-app.use('/signout', require('./routes/signout.route.js'));
-*/
-
 app.use('/refresh', require('./routes/refreshtoken.route.js'));
 
 
@@ -55,18 +67,4 @@ app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
 
-mongoose.connect(process.env.DATABASE,
-  {
-    //useNewUrlParser: true, //DEPRECATED
-    //useUnifiedTopology: true //DEPRECATED
-  }
-)
-.then(() => {
-  console.log("Connected to MongoDB successfully");
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-  });
-})
-.catch((err) => {
-  console.error("Error connecting to MongoDB:", err);
-});
+//app.use(verifyJWT.unless({ path: ['/api/assets',,] }));
