@@ -61,6 +61,7 @@ const generateTasks = async (req, res, next) => {
     });
 
     const out = resp?.output ?? [];
+    console.log(`generateTasks, output: ${JSON.stringify(out)}`);
 
     // --- Robust extractor: supports function_call (preferred) and tool_call (legacy) ---
     const findFunctionCall = (items, expectedName) => {
