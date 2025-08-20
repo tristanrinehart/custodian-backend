@@ -1,6 +1,6 @@
 // 3100
 
-const env = require('./config/envs.js')
+const env = require('./config/env.js')
 const express = require('express');
 const app = express();
 app.set('trust proxy', 1);
@@ -15,6 +15,8 @@ const verifyJWT = require('./middleware/verifyJWT.js')
 const cookieParser = require('cookie-parser')
 const credentials = require('./middleware/credentials');
 const bodyParser = require('body-parser');
+const HOST = process.env.HOST
+
 
 //env settings
 if (env.isProd) mongoose.set('debug', false);
@@ -68,8 +70,8 @@ app.get('/', (req, res) => {
   res.send(`Hello World!`);
 });
 
-app.listen(env.PORT, () => {
-  console.log(`API running on port ${env.PORT} (${env.NODE_ENV})`);
+app.listen(PORT, HOST, () => {
+  console.log(`API running on ${HOST}:${PORT} (${env.NODE_ENV})`);
 });
 
 /*
