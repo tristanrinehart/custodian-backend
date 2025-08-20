@@ -1,12 +1,11 @@
 {
   "name": "custodian-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "node index.js",
-    "dev": "nodemon index.js",
-    "dev2": "nodemon server.js"
+    "serve": "node server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "start": "cross-env NODE_ENV=production node server.js"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +18,8 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
+    "dotenv-flow": "^4.1.0",
+    "envalid": "^8.1.0",
     "express": "^5.1.0",
     "express-jwt": "^8.5.1",
     "express-validator": "^7.2.1",
@@ -29,5 +30,8 @@
     "openai": "^5.12.2",
     "uuid": "^11.1.0",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0"
   }
 }
