@@ -32,12 +32,12 @@ const handleSignIn = async (req, res) => {
         console.log(result); // Log the result for debugging
         
         const isProd = process.env.NODE_ENV === 'production';
+        console.log(`isProd: ${isProd}`);
 
         res.cookie('jwt', refreshToken, {
             httpOnly: true, // Accessible only by web server
             secure: isProd,
-            sameSite: isProd ? 'None' : 'Lax', // Cross-site cookie
-            
+            sameSite: isProd ? 'None' : 'Lax', // Cross-site cookie  
             maxAge: 24 * 60 * 60 * 1000 * 1000// 1000 days
         });
         res.json(

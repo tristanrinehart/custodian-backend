@@ -1,6 +1,6 @@
 // 3100
 
-const env = require('./config/env.js')
+const { env }= require('./config/env.js')
 const express = require('express');
 const app = express();
 app.set('trust proxy', 1);
