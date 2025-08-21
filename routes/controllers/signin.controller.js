@@ -31,10 +31,13 @@ const handleSignIn = async (req, res) => {
         const result = await foundUser.save(); // Save the updated user
         console.log(result); // Log the result for debugging
         
+        const isProd = process.env.NODE_ENV === 'production';
+
         res.cookie('jwt', refreshToken, {
             httpOnly: true, // Accessible only by web server
-            sameSite: 'None', // Cross-site cookie
-            secure: true,
+            secure: isProd,
+            sameSite: isProd ? 'None' : 'Lax', // Cross-site cookie
+            
             maxAge: 24 * 60 * 60 * 1000 * 1000// 1000 days
         });
         res.json(
