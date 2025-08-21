@@ -1,9 +1,5 @@
 // 3100
-// config/allowedOrigins.js
-const csv = process.env.CORS_ORIGINS || 'http://localhost:5173';
-module.exports = csv.split(',').map(s => s.trim()).filter(Boolean);
 
-/*
 // Unify on CORS_ORIGINS and export an array
 const raw =
   process.env.CORS_ORIGINS ||
@@ -17,4 +13,11 @@ const allowedOrigins = raw
   .filter(Boolean);
 
 module.exports = allowedOrigins;
+
+
+
+/*
+// config/allowedOrigins.js
+const csv = process.env.CORS_ORIGINS || 'http://localhost:5173';
+module.exports = csv.split(',').map(s => s.trim()).filter(Boolean);
 */

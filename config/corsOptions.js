@@ -1,19 +1,5 @@
 // 3100
-// config/corsOptions.js
-const allowedOrigins = require('./allowedOrigins');
 
-module.exports = {
-  origin(origin, cb) {
-    // allow tools like curl/postman (no Origin header)
-    if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
-    return cb(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
-  optionsSuccessStatus: 200,
-};
-
-/*
 const allowedOrigins = require('./allowedOrigins');
 
 const corsOptions = {
@@ -31,4 +17,21 @@ const corsOptions = {
 };
 
 module.exports = corsOptions;
+
+
+
+/*
+// config/corsOptions.js
+const allowedOrigins = require('./allowedOrigins');
+
+module.exports = {
+  origin(origin, cb) {
+    // allow tools like curl/postman (no Origin header)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+};
 */
