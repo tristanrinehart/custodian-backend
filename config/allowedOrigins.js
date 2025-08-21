@@ -8,7 +8,7 @@ if (environment === 'development') {
   allowedOrigins = process.env.ALLOWED_ORIGINS_PROD; // Load from environment variable
 } else {
   // Default or throw an error for unsupported environments
-  allowedOrigins = 'https://custodian.onrender.com'; // Example default
+  allowedOrigins = 'https://custodian-frontend.onrender.com'; // Example default
 }
 
 
