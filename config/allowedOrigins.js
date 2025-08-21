@@ -1,12 +1,15 @@
 // 3100
+const environment = process.env.NODE_ENV || 'development';
+let allowedOrigins;
 
-const allowedOrigins = [
-    'https://www.yoursite.com',
-    'http://127.0.0.1:5500',
-    'http://localhost:3500',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://localhost:3100'
-];
+if (environment === 'development') {
+  allowedOrigins = process.env.ALLOWED_ORIGINS_DEV; // Load from environment variable
+} else if (environment === 'production') {
+  allowedOrigins = process.env.ALLOWED_ORIGINS_PROD; // Load from environment variable
+} else {
+  // Default or throw an error for unsupported environments
+  allowedOrigins = 'https://custodian-backend.onrender.com'; // Example default
+}
+
 
 module.exports = allowedOrigins;
