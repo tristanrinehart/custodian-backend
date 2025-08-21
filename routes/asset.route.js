@@ -3,7 +3,9 @@ const Asset = require("../models/asset.model.js");
 const router = express.Router();
 const {getAssets, getUserAssets, createAsset, updateAsset, deleteAsset} = require('./controllers/asset.controller.js');
 const { generateTasks } = require('./controllers/generateTasks.controller.js');
+const verifyJWT = require('../middleware/verifyJWT');
 
+//router.use(verifyJWT)
 //controller function
 router.get('/', getAssets);
 router.post('/', createAsset);

@@ -1,5 +1,45 @@
 // 3100
+const { env } = require('./config/env');
+const express = require('express');
+const cors = require('cors');
+const corsOptions = require('./config/corsOptions');
+const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
+const path = require('path');
 
+const app = express();
+app.set('trust proxy', 1);
+
+// middleware order matters
+app.use(require('./middleware/credentials'));
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+
+// routes
+app.use('/api/users', require('./routes/user.route'));
+app.use('/api/refresh', require('./routes/refreshtoken.route')); // change to POST
+app.use('/api/signout', require('./routes/signout.route'));      // change to POST
+app.use('/api/assets', require('./routes/asset.route'));
+
+app.get('/healthz', (_, res) => res.send('ok'));
+
+// DB & start
+mongoose.set('debug', !env.isProd);
+mongoose.connect(env.MONGODB_URI).then(() => {
+  const host = '0.0.0.0';
+  app.listen(env.PORT, host, () => {
+    console.log(`API running on http://${host}:${env.PORT} (${env.NODE_ENV})`);
+  });
+}).catch(err => {
+  console.error('Mongo connect error:', err);
+  process.exit(1);
+});
+
+
+
+/*
 const { env }= require('./config/env.js')
 const express = require('express');
 const app = express();
@@ -73,10 +113,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, HOST, () => {
   console.log(`API running on ${HOST}:${PORT} (${env.NODE_ENV})`);
 });
-
-/*
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
 */
-//app.use(verifyJWT.unless({ path: ['/api/assets',,] }));
