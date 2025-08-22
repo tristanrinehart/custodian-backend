@@ -7,6 +7,7 @@ const { handleSignOut } = require('./controllers/signout.controller.js');
 const {check} = require('express-validator');
 const handleMe = require('./controllers/me.controller');
 const verifyJWT = require('../middleware/verifyJWT');
+//const { requireCsrf, ensureCsrfCookie } = require('../middleware/csrf');
 
 //controller function
 router.post('/signup', [
@@ -15,7 +16,7 @@ router.post('/signup', [
     check('password', 'Password must be at least 2 characters long').isLength({ min: 2 })
 ], handleNewUser);
 
-router.post('/signin', handleSignIn);
+router.post('/signin', handleSignIn); 
 router.get('/signout', handleSignOut);
 router.get('/me', verifyJWT, handleMe);
 

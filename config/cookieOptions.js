@@ -5,7 +5,7 @@ const base = {
   httpOnly: true,
   sameSite: isProd ? 'None' : 'Lax',
   secure: isProd,
-  partitioned: isProd ? true : undefined // must be true in prod with SameSite=None
+  ...(isProd ? { partitioned: true } : {}) // must be true in prod with SameSite=None
 };
 
 exports.accessCookie = {

@@ -30,6 +30,10 @@ app.use('/', require('./routes/auth.route'));
 // This protects your other POST/PUT/PATCH/DELETE routes that rely on cookies
 app.use(requireCsrf);
 
+app.get('/csrf-token', ensureCsrfCookie, (req, res) => {
+  res.json({ csrfToken: res.locals.csrfToken }); // <-- return the one we actually set
+});
+
 // routes
 app.use('/api/users', require('./routes/user.route'));
 app.use('/api/refresh', require('./routes/refreshtoken.route')); // change to POST

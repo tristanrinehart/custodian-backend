@@ -13,7 +13,9 @@ const corsOptions = {
     return callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,            // <-- important for cookies
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','X-CSRF-Token','Authorization']
 };
 
 module.exports = corsOptions;
