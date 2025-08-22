@@ -23,9 +23,7 @@ router.post('/signin', requireCsrf, handleSignIn);
 router.get('/signout', handleSignOut);
 router.get('/me', verifyJWT, handleMe);
 router.get('/csrf-token', ensureCsrfCookie, (req, res) => {
-  res.json({
-    csrfToken: res.locals.csrfToken || req.cookies?.csrf || null
-  });
+  res.json({ csrfToken: res.locals.csrfToken });
 });
 
 module.exports = router;
