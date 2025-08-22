@@ -5,44 +5,33 @@ const CSRF_COOKIE_NAME = 'csrf';
 
 function setCsrfCookie(res, value) {
   res.cookie(CSRF_COOKIE_NAME, value, {
-    httpOnly: false,
-    sameSite: isProd ? 'None' : 'Lax',
-    secure: isProd,
-    domain: isProd ? '.onrender.com' : undefined, // single canonical scope
-    // Temporarily disable Partitioned while we stabilize:
-    // ...(isProd ? { partitioned: true } : {}),
-    path: '/',
+    httpOnly: false,        // readable by frontend JS (for debug if needed)
+    secure: isProd,         // required in prod
+    sameSite: 'Lax',        // same-site subdomains -> cookie will be sent on XHR
+    path: '/',              // root
+    // IMPORTANT: no "domain" attribute -> host-only cookie for the backend host
+    // DO NOT set "Partitioned" here while we stabilize
   });
 }
 
+// Optional: clear any legacy variants so only one cookie remains
 function sweepLegacyCookies(req, res) {
-  // Clear possible legacy scopes so only one cookie remains
   try {
-    // host-only cookie (no domain)
-    if (req.cookies?.[CSRF_COOKIE_NAME]) {
-      res.clearCookie(CSRF_COOKIE_NAME, { path: '/' });
-    }
-    // host-specific domain cookie
-    res.clearCookie(CSRF_COOKIE_NAME, {
-      domain: 'custodian-backend.onrender.com',
-      path: '/',
-    });
-    // non-partitioned vs partitioned variants are indistinguishable here, but
-    // this clear + canonical set will collapse to one cookie.
-  } catch (_) {}
+    res.clearCookie(CSRF_COOKIE_NAME, { path: '/' }); // host-only legacy
+    res.clearCookie(CSRF_COOKIE_NAME, { domain: '.onrender.com', path: '/' });
+    res.clearCookie(CSRF_COOKIE_NAME, { domain: 'custodian-backend.onrender.com', path: '/' });
+  } catch {}
 }
 
 function ensureCsrfCookie(req, res, next) {
-  // Always produce a single canonical cookie value and return it
-  const existing = req.cookies?.[CSRF_COOKIE_NAME];
-  const token = existing || crypto.randomBytes(24).toString('base64url');
+  const token = req.cookies?.[CSRF_COOKIE_NAME] || crypto.randomBytes(24).toString('base64url');
 
-  // Remove legacy-scoped duplicates, then set the canonical cookie
+  // Collapse any duplicates from earlier experiments, then set one canonical cookie
   sweepLegacyCookies(req, res);
   setCsrfCookie(res, token);
 
   res.locals.csrfToken = token;
-  return next();
+  next();
 }
 
 function requireCsrf(req, res, next) {
@@ -52,20 +41,20 @@ function requireCsrf(req, res, next) {
   const cookie = req.cookies?.[CSRF_COOKIE_NAME];
 
   if (!header || !cookie || header !== cookie) {
-    // helpful one-line log:
     console.warn('[CSRF FAIL]', {
       method: req.method,
       path: req.originalUrl,
       origin: req.get('origin'),
       header8: header ? header.slice(0,8) : null,
-      cookie8: cookie ? cookie.slice(0,8) : null
+      cookie8: cookie ? cookie.slice(0,8) : null,
     });
     return res.status(403).json({ message: 'Forbidden (CSRF). Please try again.' });
   }
-  return next();
+  next();
 }
 
 module.exports = { ensureCsrfCookie, requireCsrf };
+
 
 /*
 // middleware/csrf.js
