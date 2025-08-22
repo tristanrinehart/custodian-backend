@@ -1,6 +1,7 @@
 // 3100
 const { env } = require('./config/env');
 const express = require('express');
+const credentials = require('./middleware/credentials')
 const cors = require('cors');
 const corsOptions = require('./config/corsOptions');
 const { requireCsrf, ensureCsrfCookie } = require('./middleware/csrf');
@@ -14,7 +15,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // middleware order matters
-app.use(require('./middleware/credentials'));
+app.use(credentials)
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -30,9 +31,6 @@ app.use('/', require('./routes/auth.route'));
 // This protects your other POST/PUT/PATCH/DELETE routes that rely on cookies
 app.use(requireCsrf);
 
-app.get('/csrf-token', ensureCsrfCookie, (req, res) => {
-  res.json({ csrfToken: res.locals.csrfToken }); // <-- return the one we actually set
-});
 
 // routes
 app.use('/api/users', require('./routes/user.route'));
