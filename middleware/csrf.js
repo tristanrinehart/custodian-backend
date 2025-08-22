@@ -10,6 +10,7 @@ function setCanonicalCsrfCookie(res, value) {
     secure: isProd,                      // required on https in prod
     sameSite: 'None',                    // robust across subdomains; both are https
     path: '/',
+    ...(isProd ? { partitioned: true } : {})
     // IMPORTANT: no "domain", no "partitioned"
   });
 }
