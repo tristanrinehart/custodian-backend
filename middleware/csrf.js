@@ -3,39 +3,33 @@ const crypto = require('crypto');
 const isProd = process.env.NODE_ENV === 'production';
 const CSRF_COOKIE_NAME = 'csrf';
 
-function setCanonicalCookie(res, value) {
+function setCanonicalCsrfCookie(res, value) {
+  // Host-only cookie (no "domain"), so the browser will send it on XHR to the backend host.
   res.cookie(CSRF_COOKIE_NAME, value, {
-    httpOnly: false,          // we return the token in JSON; JS- readable is OK for debugging
-    secure: isProd,           // required on HTTPS in prod
-    sameSite: 'None',         // robust across subdomains; both are HTTPS
-    path: '/',                // root
-    // IMPORTANT: host-only cookie -> omit "domain"
-    // DO NOT set "Partitioned" while stabilizing
+    httpOnly: false,                     // frontend reads token from JSON; this stays false for debug parity
+    secure: isProd,                      // required on https in prod
+    sameSite: 'None',                    // robust across subdomains; both are https
+    path: '/',
+    // IMPORTANT: no "domain", no "partitioned"
   });
 }
 
 function clearLegacyVariants(res) {
-  // Clear any old wide-scope cookie so we don't have two cookies with the same name
+  // Clear any wide-scope cookie that may still be hanging around
   try { res.clearCookie(CSRF_COOKIE_NAME, { domain: '.onrender.com', path: '/' }); } catch {}
 }
 
 function ensureCsrfCookie(req, res, next) {
-  // If we've already minted a token earlier in this *same request*, reuse it.
-  if (res.locals.csrfToken) {
-    setCanonicalCookie(res, res.locals.csrfToken);
-    return next();
-  }
+  // Reuse existing value if present, otherwise mint one
+  const token = req.cookies?.[CSRF_COOKIE_NAME] || crypto.randomBytes(24).toString('base64url');
 
-  // Otherwise, reuse the request cookie if present, else mint a new token.
-  const existing = req.cookies?.[CSRF_COOKIE_NAME];
-  const token = existing || crypto.randomBytes(24).toString('base64url');
-
-  // Normalize to ONE canonical cookie, and clear legacy wide-scope variants
+  // Normalize to a single canonical cookie every time this endpoint is hit
   clearLegacyVariants(res);
-  setCanonicalCookie(res, token);
+  setCanonicalCsrfCookie(res, token);
 
+  // Return the EXACT value we just set so the frontend can echo it in the header
   res.locals.csrfToken = token;
-  next();
+  return next();
 }
 
 function requireCsrf(req, res, next) {
@@ -49,17 +43,16 @@ function requireCsrf(req, res, next) {
         method: req.method,
         path: req.originalUrl,
         origin: req.get('origin'),
-        header8: header ? header.slice(0,8) : null,
-        cookie8: cookie ? cookie.slice(0,8) : null,
+        header8: header ? header.slice(0, 8) : null,
+        cookie8: cookie ? cookie.slice(0, 8) : null,
       });
     }
     return res.status(403).json({ message: 'Forbidden (CSRF). Please try again.' });
   }
-  next();
+  return next();
 }
 
 module.exports = { ensureCsrfCookie, requireCsrf };
-
 
 
 /*
