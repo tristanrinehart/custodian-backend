@@ -3,12 +3,15 @@ const { env } = require('./config/env');
 const express = require('express');
 const cors = require('cors');
 const corsOptions = require('./config/corsOptions');
+const { requireCsrf, ensureCsrfCookie } = require('./middleware/csrf');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const path = require('path');
 
 const app = express();
-app.set('trust proxy', 1);
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1); // if behind a proxy / LB
+}
 
 // middleware order matters
 app.use(require('./middleware/credentials'));
@@ -16,6 +19,16 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+// Issue CSRF cookie early so SPA can read it
+app.use(ensureCsrfCookie);
+
+// Public auth routes
+app.use('/', require('./routes/auth.route'));
+
+// CSRF check for unsafe methods AFTER public routes (signin/logout already OK with cookie)
+// This protects your other POST/PUT/PATCH/DELETE routes that rely on cookies
+app.use(requireCsrf);
 
 // routes
 app.use('/api/users', require('./routes/user.route'));

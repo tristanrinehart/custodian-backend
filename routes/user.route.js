@@ -2,9 +2,11 @@ const express = require("express");
 const User = require("../models/user.model.js"); 
 const router = express.Router();
 const { handleNewUser } = require('./controllers/signup.controller.js');
-const { handleSignIn } = require('./controllers/signin.controller.js');
+const handleSignIn = require('./controllers/signin.controller.js');
 const { handleSignOut } = require('./controllers/signout.controller.js');
 const {check} = require('express-validator');
+const handleMe = require('./controllers/me.controller');
+const verifyJWT = require('../middleware/verifyJWT');
 
 //controller function
 router.post('/signup', [
@@ -15,5 +17,6 @@ router.post('/signup', [
 
 router.post('/signin', handleSignIn);
 router.get('/signout', handleSignOut);
+router.get('/me', verifyJWT, handleMe);
 
 module.exports = router;

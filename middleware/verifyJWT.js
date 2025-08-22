@@ -1,3 +1,24 @@
+// middleware/verifyJWT.js
+const { verifyAccess } = require('../utils/jwt');
+
+module.exports = (req, res, next) => {
+  // Support either Authorization header OR access cookie
+  const auth = req.headers.authorization || '';
+  const headerToken = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const cookieToken = req.cookies?.access || null;
+  const token = headerToken || cookieToken;
+
+  if (!token) return res.sendStatus(401);
+
+  verifyAccess(token, (err, decoded) => {
+    if (err) return res.sendStatus(403);
+    // normalize user info field
+    req.user = decoded?.UserInfo || decoded?.user || decoded;
+    return next();
+  });
+};
+
+/*
 // 3100
 // https://www.youtube.com/watch?v=favjC6EKFgw&list=PL0Zuz27SZ-6PFkIxaJ6Xx_X46avTM1aYw&index=11
 // https://github.com/gitdagray/express_jwt/blob/main/middleware/verifyJWT.js
@@ -8,7 +29,7 @@ require('dotenv').config()
 const verifyJWT = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     if (!authHeader) return res.sendStatus(401); // Unauthorized
-    console.log(authHeader) //Bearer token
+    
     const token = authHeader.split(' ')[1]; // Extract the token from the header
     console.log(token) // Log the token for debugging
 
@@ -27,3 +48,4 @@ const verifyJWT = (req, res, next) => {
 }
 
 module.exports = verifyJWT;
+*/
