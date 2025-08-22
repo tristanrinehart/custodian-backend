@@ -42,6 +42,10 @@ app.use('/api/assets', require('./routes/asset.route'));
 
 app.get('/healthz', (_, res) => res.send('ok'));
 
+// for testing
+app.post('/api/debug/echo', (req, res) => {
+  res.json({ headers: req.headers, body: req.body });
+});
 // DB & start
 mongoose.set('debug', !env.isProd);
 mongoose.connect(env.MONGODB_URI).then(() => {
