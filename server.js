@@ -15,21 +15,23 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // middleware order matters
-app.use(credentials)
-app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
+app.use(credentials)
+app.use(cors(corsOptions));
+app.use(ensureCsrfCookie);
+app.use(requireCsrf);
+
+
 
 // Issue CSRF cookie early so SPA can read it
-app.use(ensureCsrfCookie);
+
 
 // Public auth routes
-app.use('/', require('./routes/auth.route'));
+//app.use('/', require('./routes/auth.route'));
 
-// CSRF check for unsafe methods AFTER public routes (signin/logout already OK with cookie)
-// This protects your other POST/PUT/PATCH/DELETE routes that rely on cookies
-app.use(requireCsrf);
+
 
 
 // routes
