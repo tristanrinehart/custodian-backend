@@ -5,6 +5,7 @@ const base = {
   httpOnly: true,
   sameSite: isProd ? 'None' : 'Lax',
   secure: isProd,
+  domain: isProd ? '.onrender.com' : null,
   ...(isProd ? { partitioned: true } : {}) // must be true in prod with SameSite=None
 };
 
