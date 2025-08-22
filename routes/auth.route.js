@@ -17,10 +17,10 @@ router.get('/refresh', refresh);
 //router.post('/logout', logout);
 
 // Optionally expose CSRF token to clients that want to prefetch it
-/*
+
 router.get('/csrf-token', ensureCsrfCookie, (req, res) => {
   res.json({ csrfToken: req.csrfToken || req.cookies?.csrf || null });
 });
-*/
+
 
 module.exports = router;
