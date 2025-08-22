@@ -20,14 +20,14 @@ function clearLegacyVariants(res) {
 }
 
 function ensureCsrfCookie(req, res, next) {
-  // Reuse existing value if present, otherwise mint one
-  const token = req.cookies?.[CSRF_COOKIE_NAME] || crypto.randomBytes(24).toString('base64url');
-
-  // Normalize to a single canonical cookie every time this endpoint is hit
-  clearLegacyVariants(res);
+  const existing = req.cookies?.csrf;
+  if (existing) {
+    res.locals.csrfToken = existing;
+    return next();
+  }
+  // Otherwise mint + set once
+  const token = crypto.randomBytes(24).toString('base64url');
   setCanonicalCsrfCookie(res, token);
-
-  // Return the EXACT value we just set so the frontend can echo it in the header
   res.locals.csrfToken = token;
   return next();
 }
