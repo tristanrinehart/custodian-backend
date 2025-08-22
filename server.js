@@ -15,11 +15,11 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // middleware order matters
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(credentials)
-app.use(cors(corsOptions));
 app.use(ensureCsrfCookie);
 app.use(requireCsrf);
 
