@@ -4,7 +4,8 @@ const base = {
   path: '/',
   httpOnly: true,
   sameSite: isProd ? 'None' : 'Lax',
-  secure: isProd, // must be true in prod with SameSite=None
+  secure: isProd,
+  partitioned: isProd ? true : undefined // must be true in prod with SameSite=None
 };
 
 exports.accessCookie = {

@@ -13,6 +13,7 @@ function ensureCsrfCookie(req, res, next) {
       httpOnly: false, // client must read it
       sameSite: isProd ? 'None' : 'Lax',
       secure: isProd,
+      partitioned: true,
       path: '/',
       maxAge: 2 * 60 * 60 * 1000, // 2h
     });
