@@ -1,35 +1,41 @@
 // middleware/csrf.js
 const crypto = require('crypto');
 const isProd = process.env.NODE_ENV === 'production';
-const CSRF_COOKIE_NAME = 'csrf';
+
+// Use a new name to avoid clashes with any legacy cookies still hanging around
+const CSRF_COOKIE_NAME = 'custodian_csrf_v2';
 
 function setCsrfCookie(res, value) {
   res.cookie(CSRF_COOKIE_NAME, value, {
-    httpOnly: false,        // readable by frontend JS (for debug if needed)
-    secure: isProd,         // required in prod
-    sameSite: 'Lax',        // same-site subdomains -> cookie will be sent on XHR
-    path: '/',              // root
-    // IMPORTANT: no "domain" attribute -> host-only cookie for the backend host
-    // DO NOT set "Partitioned" here while we stabilize
+    httpOnly: false,           // readable by JS (we're not reading it; JSON is the source of truth)
+    secure: isProd,            // required on HTTPS
+    sameSite: 'None',          // always send in all contexts (simplest + robust)
+    path: '/',                 // send to every path
+    // IMPORTANT: host-only cookie (omit "domain") -> ties it to custodian-backend.onrender.com
+    // Do NOT set "Partitioned" while debugging; it complicates things
   });
 }
 
-// Optional: clear any legacy variants so only one cookie remains
+// Clear any legacy cookies that might collide (host-only, domain-scoped, old names)
 function sweepLegacyCookies(req, res) {
-  try {
-    res.clearCookie(CSRF_COOKIE_NAME, { path: '/' }); // host-only legacy
-    res.clearCookie(CSRF_COOKIE_NAME, { domain: '.onrender.com', path: '/' });
-    res.clearCookie(CSRF_COOKIE_NAME, { domain: 'custodian-backend.onrender.com', path: '/' });
-  } catch {}
+  const names = ['csrf', 'custodian_csrf', 'custodian_csrf_v2'];
+  for (const name of names) {
+    try { res.clearCookie(name, { path: '/' }); } catch {}
+    try { res.clearCookie(name, { domain: '.onrender.com', path: '/' }); } catch {}
+    try { res.clearCookie(name, { domain: 'custodian-backend.onrender.com', path: '/' }); } catch {}
+  }
 }
 
 function ensureCsrfCookie(req, res, next) {
-  const token = req.cookies?.[CSRF_COOKIE_NAME] || crypto.randomBytes(24).toString('base64url');
+  // either reuse existing or mint a new one
+  const existing = req.cookies?.[CSRF_COOKIE_NAME];
+  const token = existing || crypto.randomBytes(24).toString('base64url');
 
-  // Collapse any duplicates from earlier experiments, then set one canonical cookie
+  // collapse any duplicates, then set one canonical cookie for the backend host
   sweepLegacyCookies(req, res);
   setCsrfCookie(res, token);
 
+  // expose the exact value we just set
   res.locals.csrfToken = token;
   next();
 }
@@ -53,7 +59,8 @@ function requireCsrf(req, res, next) {
   next();
 }
 
-module.exports = { ensureCsrfCookie, requireCsrf };
+module.exports = { ensureCsrfCookie, requireCsrf, CSRF_COOKIE_NAME };
+
 
 
 /*
