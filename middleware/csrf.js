@@ -13,7 +13,8 @@ function ensureCsrfCookie(req, res, next) {
   res.cookie(CSRF_COOKIE_NAME, token, {
     httpOnly: false,                   // readable by frontend JS
     sameSite: isProd ? 'None' : 'Lax', // cross-site in prod
-    secure: isProd,                    // required with SameSite=None
+    secure: isProd,
+    domain:  isProd ? '.onrender.com' : null,                  
     ...(isProd ? { partitioned: true } : {}), // CHIPS for 3P contexts
     path: '/',
   });
