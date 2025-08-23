@@ -2,13 +2,13 @@
 const express = require('express');
 const router = express.Router();
 
-const signin = require('./controllers/signin.controller');
+//const signin = require('./controllers/signin.controller');
 const refresh = require('./controllers/refreshtoken.controller');
 //const signout = require('./controllers/signout.controller');
 const { ensureCsrfCookie } = require('../middleware/csrf');
 
 // Sign in (sets cookies)
-router.post('/signin', ensureCsrfCookie, signin);
+//router.post('/signin', ensureCsrfCookie, signin);
 
 // Refresh access (reads jwt cookie; sets access cookie)
 router.get('/refresh', refresh);
