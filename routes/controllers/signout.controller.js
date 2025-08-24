@@ -26,9 +26,9 @@ const handleSignOut = async (req, res) => {
 
     res.clearCookie('jwt', { 
         httpOnly: true, 
-        sameSite: 'None', 
-        secure: true,
-        ...(isProd ? { partitioned: true } : {})
+        secure: isProd,                      // required on https in prod
+        sameSite: isProd ? 'Lax' : 'Lax', 
+        //...(isProd ? { partitioned: true } : {})
     }); // clear cookie, set secure: true in Prod
     res.sendStatus(204); // No content
 

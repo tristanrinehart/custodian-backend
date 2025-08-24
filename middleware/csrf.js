@@ -8,9 +8,9 @@ function setCanonicalCsrfCookie(res, value) {
   res.cookie(CSRF_COOKIE_NAME, value, {
     httpOnly: false,                     // frontend reads token from JSON; this stays false for debug parity
     secure: isProd,                      // required on https in prod
-    sameSite: isProd ? 'None' : 'Lax',                   // robust across subdomains; both are https
+    sameSite: isProd ? 'Lax' : 'Lax',                   // robust across subdomains; both are https
     path: '/',
-    ...(isProd ? { partitioned: true } : {})
+    //...(isProd ? { partitioned: true } : {}) //commented out to supprt api rewriting
     // IMPORTANT: no "domain", no "partitioned"
   });
 }
