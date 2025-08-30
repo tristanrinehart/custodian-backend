@@ -103,7 +103,19 @@ const assetSchema = mongoose.Schema(
         id: {
             type: Number,
             default: false
-        }
+        },
+        tasksStatus: { 
+            type: String, enum: ['none','pending','ready','error'], default: 'none' 
+        },
+        tasksUpdatedAt: { 
+            type: Date 
+        },
+        tasksVersion: { 
+            type: Number, default: 1 
+        },   // bump when your prompt/recipe changes
+        tasksPromptHash: { 
+            type: String 
+        }           // hash(prompt + relevant asset attrs + version)
     }
 );
 

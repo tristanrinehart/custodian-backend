@@ -103,6 +103,7 @@ const generateTasks = async (req, res, next) => {
         parallel_tool_calls: false,
         max_output_tokens: 2048
       });
+      console.log(`Tasks: ${JSON.stringify(resp)}`)
     } catch (apiErr) {
       const latency = Date.now() - tCall;
       error("OPENAI error during responses.create", {
