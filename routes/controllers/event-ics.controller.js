@@ -2,18 +2,6 @@
 const { localInTzToUtc } = require('../../lib/time');
 const { buildIcsUtc } = require('../../lib/ics-utc');
 
-/**
- * POST /api/events/ical
- * Body:
- *  {
- *    "title": "Custodian Check-in",
- *    "description": "Weekly sync",
- *    "location": "Zoom",
- *    "startLocal": "2025-09-06T08:00",
- *    "endLocal":   "2025-09-06T09:00",
- *    "tz": "America/Los_Angeles"
- *  }
- */
 module.exports = async function eventIcs(req, res, next) {
   try {
     const { title, description, location, startLocal, endLocal, tz } = req.body || {};
@@ -21,8 +9,21 @@ module.exports = async function eventIcs(req, res, next) {
       return res.status(400).json({ message: 'Missing title/startLocal/endLocal/tz' });
     }
 
-    const startUtc = localInTzToUtc(startLocal, tz); // Date in UTC
-    const endUtc = localInTzToUtc(endLocal, tz);
+    // Convert local wall-clock -> UTC
+    const startUtc = localInTzToUtc(startLocal, tz);
+    const endUtc   = localInTzToUtc(endLocal, tz);
+
+    // DEBUG once: verify the UTC looks right in logs
+    if (process.env.LOG_ICS === 'true') {
+      console.log('[ICS DEBUG]', {
+        tz,
+        startLocal,
+        endLocal,
+        startUtcISO: startUtc.toISOString(),
+        endUtcISO: endUtc.toISOString(),
+      });
+      // For 2025-09-06 08:00 America/Los_Angeles, you should see 15:00:00.000Z
+    }
 
     const ics = buildIcsUtc({
       title,
@@ -30,14 +31,10 @@ module.exports = async function eventIcs(req, res, next) {
       location,
       startUtc,
       endUtc,
-      // uid/url/organizerEmail optional:
-      // uid: `event-${id}@custodian.app`,
-      // url: `https://custodian-frontend.onrender.com/events/${id}`,
-      // organizerEmail: 'noreply@custodian.app',
     });
 
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=event.ics`);
+    res.setHeader('Content-Disposition', 'attachment; filename=event.ics');
     res.setHeader('Cache-Control', 'no-store');
     res.send(ics);
   } catch (err) {
