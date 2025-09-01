@@ -1,10 +1,10 @@
 // backend/src/routes/assets.route.js (or similar)
 const express = require("express");
 const router = express.Router();
-
 const verifyJWT = require('../middleware/verifyJWT');
 const Task = require('../models/task.model');
 const { buildIcsForTask } = require('../services/calendarIcs');
+const eventIcs = require('./controllers/event-ics.controller');
 
 const {
   assetsWithTasksSummary, getAssets, getAsset, createAsset, updateAsset, deleteAsset
@@ -30,6 +30,7 @@ router.get('/:assetId/tasks', getTasksForAsset);
 router.post('/:assetId/tasks/generate', generateTasksForAsset);
 
 // 🔐 ICS route (now behind verifyJWT so req.user.id is set)
+router.post('/events/ical', eventIcs);
 router.get('/:assetId/tasks/:taskId/ics', async (req, res) => {
   const { assetId, taskId } = req.params;
   const userId = req.user.id; // ✅ now defined
