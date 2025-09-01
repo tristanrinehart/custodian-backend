@@ -13,8 +13,17 @@ async function getTasksForAsset(req, res) {
     const asset = await Asset.findOne({ _id: assetId, userId });
     if (!asset) return res.status(404).json({ message: 'Asset not found' });
 
-    const tasks = await Task.find({ asset: asset._id, userId }).sort({ priority: 1, createdAt: 1, _id: 1 }).lean();
-    return res.json({ assetId: asset._id, tasksStatus: asset.tasksStatus, tasks });
+    const tasks = await Task
+      .find({ asset: asset._id, userId })
+      .sort({ priority: 1, createdAt: 1, _id: 1 })
+      .lean();
+
+    // Always include assetId in the payload
+    return res.json({
+      assetId: asset._id,
+      tasksStatus: asset.tasksStatus,
+      tasks,
+    });
   } catch (err) {
     console.error('getTasksForAsset error', err);
     return res.status(500).json({ message: 'Failed to fetch tasks' });
@@ -41,9 +50,18 @@ async function generateTasksForAsset(req, res) {
 
     // Idempotent fast-path
     if (asset.tasksStatus === 'ready' && asset.tasksPromptHash === hash) {
-      const tasks = await Task.find({ asset: asset._id, userId }).sort({ createdAt: 1 }).lean();
+      const tasks = await Task
+        .find({ asset: asset._id, userId })
+        .sort({ priority: 1, createdAt: 1, _id: 1 })
+        .lean();
+
       await session.commitTransaction();
-      return res.json({ source: 'cache', tasksStatus: 'ready', tasks });
+      return res.json({
+        source: 'cache',
+        assetId: asset._id,          // <-- include assetId here
+        tasksStatus: 'ready',
+        tasks,
+      });
     }
 
     // Optimistic lock: set pending unless already pending
@@ -67,7 +85,7 @@ async function generateTasksForAsset(req, res) {
 
     // Overwrite tasks
     await Task.deleteMany({ asset: asset._id, userId });
-    if (plan.length) {
+    if (Array.isArray(plan) && plan.length) {
       const docs = plan.map(t => ({ ...t, asset: asset._id, userId }));
       await Task.insertMany(docs);
     }
@@ -77,8 +95,17 @@ async function generateTasksForAsset(req, res) {
       { $set: { tasksStatus: 'ready', tasksUpdatedAt: new Date(), tasksPromptHash: hash } }
     );
 
-    const tasks = await Task.find({ asset: asset._id, userId }).sort({ createdAt: 1 }).lean();
-    return res.json({ source: 'openai', tasksStatus: 'ready', tasks });
+    const tasks = await Task
+      .find({ asset: asset._id, userId })
+      .sort({ priority: 1, createdAt: 1, _id: 1 })
+      .lean();
+
+    return res.json({
+      source: 'openai',
+      assetId: asset._id,          // <-- include assetId here too
+      tasksStatus: 'ready',
+      tasks,
+    });
   } catch (err) {
     console.error('generateTasksForAsset error', err);
     try {
