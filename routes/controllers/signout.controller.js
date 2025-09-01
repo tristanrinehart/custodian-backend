@@ -1,37 +1,55 @@
-// 3100
-// 
-const User = require('../../models/user.model.js');
-const jwt = require('jsonwebtoken');
-require('dotenv').config()
+// routes/controllers/signout.controller.js
+const isProd = process.env.NODE_ENV === 'production';
 
-
-const handleSignOut = async (req, res) => {
-    // On client, also delete the accessToken
-    const cookies = req.cookies;
-    if (!cookies?.jwt) return res.sendStatus(204); // No content
-    const refreshToken = cookies.jwt;
-
-    // Is refreshToken in db?
-    const foundUser = await User.findOne({ refreshToken: refreshToken }).exec();
-    if (!foundUser) {
-        // If no user found, clear the cookie and return 204
-        res.clearCookie('jwt', { httpOnly: true, maxAge: 24 * 60 * 1000 * 1000 }); // clear cookie
-        return res.sendStatus(204); // No content
-    } 
-   
-    // Delete refreshToken from the user
-    foundUser.refreshToken = '';
-    const result = await foundUser.save(); // Save the updated user
-    console.log(result);  
-
-    res.clearCookie('jwt', { 
-        httpOnly: true, 
-        secure: isProd,                      // required on https in prod
-        sameSite: isProd ? 'Lax' : 'Lax', 
-        //...(isProd ? { partitioned: true } : {})
-    }); // clear cookie, set secure: true in Prod
-    res.sendStatus(204); // No content
-
+/**
+ * Detect HTTPS even when behind a proxy/CDN.
+ * (Make sure you have app.set('trust proxy', true) if you're behind a proxy.)
+ */
+function isRequestSecure(req) {
+  return Boolean(req?.secure) || req?.headers?.['x-forwarded-proto'] === 'https';
 }
 
-module.exports = { handleSignOut }
+/**
+ * Clear a cookie using the same options you used when setting it.
+ * Note: to reliably clear, options must match (path/sameSite/secure/httpOnly/domain).
+ */
+function clearCookieSafe(req, res, name, { httpOnly }) {
+  const opts = {
+    path: '/',
+    sameSite: 'Lax',
+    secure: isProd || isRequestSecure(req),
+    httpOnly,
+    // IMPORTANT: do NOT set `domain` here if you didn't set one when creating.
+  };
+  try {
+    res.clearCookie(name, opts);
+  } catch (_) {
+    // Never throw during logout.
+  }
+}
+
+/**
+ * Sign out:
+ * - Clear refresh cookie (`jwt`, httpOnly)
+ * - Clear access cookie  (`access`, httpOnly)
+ * - If you store refresh tokens server-side (DB/redis), treat absence as a no-op
+ * - Always return 204
+ */
+async function handleSignOut(req, res) {
+  // Best-effort: if you persist refresh tokens, revoke here guardedly
+  try {
+    const refreshToken = req.cookies?.jwt;
+    // Example pattern (pseudo):
+    // if (refreshToken) await RefreshTokenStore.revoke(refreshToken).catch(() => {});
+  } catch (_) {
+    // swallow any revoke errors — logout should not 500
+  }
+
+  // Clear cookies whether or not they exist
+  clearCookieSafe(req, res, 'jwt',    { httpOnly: true  }); // refresh
+  clearCookieSafe(req, res, 'access', { httpOnly: true  }); // access
+
+  return res.sendStatus(204);
+}
+
+module.exports = { handleSignOut };
