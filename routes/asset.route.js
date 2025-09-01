@@ -12,11 +12,13 @@ const {
 
 const { getTasksForAsset, generateTasksForAsset } = require('./controllers/task.controller');
 
-// Public (optional): list/summary
-router.get('/', assetsWithTasksSummary);
+
 
 // 🔐 everything below here sets req.user (including ICS)
 router.use(verifyJWT);
+
+// Public (optional): list/summary
+router.get('/', assetsWithTasksSummary);
 
 // CRUD
 router.post('/', createAsset);
