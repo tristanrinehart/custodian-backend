@@ -60,7 +60,7 @@ router.get('/:assetId/tasks/:taskId/ics', async (req, res) => {
 
     const task = await Task.findOne(query)
       // Builder only needs these (no `date` exists in your Task schema)
-      .select('_id taskName description duration priority frequency asset userId')
+      .select('_id taskName description duration priority frequency asset userId steps tools materials supplies location url date')
       .lean();
 
     if (!task) {
