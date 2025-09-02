@@ -27,9 +27,7 @@ app.use(requireCsrf);
 // routes
 app.use('/api/users', require('./routes/user.route'));
 app.use('/api/refresh', require('./routes/refreshtoken.route')); // change to POST
-//app.use('/api/signout', require('./routes/user.route'));      // change to POST
 app.use('/api/assets', require('./routes/asset.route'));
-app.use('/api', require('./routes/asset.route'));
 
 app.get('/healthz', (_, res) => res.send('ok'));
 

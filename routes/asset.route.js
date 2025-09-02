@@ -30,172 +30,84 @@ router.get('/:assetId/tasks', getTasksForAsset);
 router.post('/:assetId/tasks/generate', generateTasksForAsset);
 
 // 🔐 ICS route (now behind verifyJWT so req.user.id is set)
+async function loadTaskOr404(assetId, taskId, req, res) {
+  // Example only; wire to your persistence
+  const task = await req.services.tasks.getById(assetId, taskId); // ← your impl
+  if (!task) {
+    res.status(404).json({ error: 'Not found' });
+    return null;
+  }
+  return task;
+}
+
 router.post('/events/ical', eventIcs);
+
 router.get('/:assetId/tasks/:taskId/ics', async (req, res) => {
   const { assetId, taskId } = req.params;
-  const userId = req.user.id; // ✅ now defined
+  const userId = req.user?.id || null;
+
+  // tz precedence
+  const tz =
+    (req.query.tz && String(req.query.tz)) ||
+    req.headers['x-timezone'] ||
+    (req.user && req.user.timeZone) ||
+    null;
 
   try {
-    const task = await Task.findOne({ _id: taskId, asset: assetId, userId }).lean();
-    if (!task) return res.status(404).json({ message: 'Task not found', assetId, taskId });
-
-    let ics = buildIcsForTask(task, { calendarName: 'Custodian' });
-    if (ics && typeof ics !== 'string' && typeof ics.toString === 'function') ics = ics.toString();
-
-    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', `attachment; filename="task-${task._id}.ics"`);
-    return res.send(ics);
-  } catch (e) {
-    console.error('[ICS route] unexpected error:', e);
-    return res.status(500).json({ message: 'Failed to build ICS', error: e?.message || String(e) });
-  }
-});
-
-// (Optional) Debug route also behind auth
-router.get('/:assetId/tasks/:taskId/ics/__debug', async (req, res) => {
-  const { assetId, taskId } = req.params;
-  const userId = req.user.id;
-
-  try {
-    const task = await Task.findOne({ _id: taskId, asset: assetId, userId }).lean();
-    if (!task) return res.status(404).json({ ok: false, message: 'Task not found', assetId, taskId, userId });
-
-    let ics = buildIcsForTask(task, { calendarName: 'Custodian' });
-    if (ics && typeof ics !== 'string' && typeof ics.toString === 'function') ics = ics.toString();
-
-    const pick = (k) => (ics.match(new RegExp(`^${k}(?::|;).*$`, 'm')) || [null])[0];
-    return res.json({
-      ok: true, assetId, taskId, userId,
-      preview: {
-        summary: pick('SUMMARY'),
-        dtstart: pick('DTSTART'),
-        dtend: pick('DTEND'),
-        rrule: pick('RRULE'),
-        priority: pick('PRIORITY'),
-        calname: pick('X-WR-CALNAME'),
-      }
-    });
-  } catch (e) {
-    return res.status(500).json({ ok: false, message: 'Debug failed', error: e?.message || String(e) });
-  }
-});
-
-module.exports = router;
-
-/*
-const express = require("express");
-const router = express.Router();
-const { buildIcsForTask } = require('../services/calendarIcs');
-const Task = require('../models/task.model'); // adjust path
-
-const verifyJWT = require('../middleware/verifyJWT');
-const {
-  // use one list handler that can also handle ?include=tasks:summary if you wire that up
-  getAssets,            // or rename to listAssets if you prefer
-  getAsset,             // optional
-  createAsset,
-  updateAsset,
-  deleteAsset,
-  assetsWithTasksSummary // if you want the ?include=tasks:summary path
-} = require('./controllers/asset.controller.js');
-
-const {
-  getTasksForAsset,
-  generateTasksForAsset
-} = require('./controllers/task.controller');
-
-// routes/assets.js (or wherever you mounted it)
-// GET /api/assets/:assetId/tasks/:taskId/ics
-router.get('/:assetId/tasks/:taskId/ics', async (req, res) => {
-  const { assetId, taskId } = req.params;
-  const userId = req.user?.id; // present if verifyJWT ran earlier in the chain
-
-  try {
-    console.log('[ICS route]', { assetId, taskId, userId });
-
-    // 🔒 tighten lookup: the task must belong to this user & asset
+    // 🔒 Scope to asset + user (prevent cross-tenant leaks)
     const query = { _id: taskId, asset: assetId };
     if (userId) query.userId = userId;
 
-    const task = await Task.findOne(query).lean();
+    const task = await Task.findOne(query)
+      // Builder only needs these (no `date` exists in your Task schema)
+      .select('_id taskName description duration priority frequency asset userId')
+      .lean();
+
     if (!task) {
-      console.warn('[ICS route] task not found', query);
-      return res.status(404).json({ message: 'Task not found', query });
+      return res.status(404).json({ error: 'Task not found', query });
     }
 
-    // 🧭 sanity: is the builder a function?
-    if (typeof buildIcsForTask !== 'function') {
-      console.error('[ICS route] buildIcsForTask is not a function:', buildIcsForTask);
-      return res.status(500).json({
-        message: 'ICS builder misconfigured',
-        hint: "Check services/calendarIcs export. It should export { buildIcsForTask }."
-      });
-    }
-
-    // 🏗️ build ICS
+    // 🏗 Build ICS
     let ics;
     try {
-      ics = buildIcsForTask(task, { calendarName: 'Custodian' });
-      // Some builders return an object (e.g., ical-generator instance)
+      ics = buildIcsForTask(task, { calendarName: 'Custodian', tz });
       if (ics && typeof ics !== 'string' && typeof ics.toString === 'function') {
         ics = ics.toString();
       }
       if (typeof ics !== 'string' || !/^BEGIN:VCALENDAR/m.test(ics)) {
-        throw new Error('ICS builder did not return a VCALENDAR string');
+        throw new Error('ICS builder returned invalid output');
       }
     } catch (e) {
-      console.error('[ICS route] buildIcsForTask failed:', e);
-      const payload = {
-        message: 'buildIcsForTask failed',
-        error: e?.message || String(e),
-        taskShape: {
-          _id: task._id,
-          taskName: task.taskName,
-          frequency: task.frequency,
-          duration: task.duration,
-          priority: task.priority,
-          description: !!task.description
-        }
-      };
-      // In dev, return JSON to help you fix quickly; in prod, keep generic
+      // Return useful info in dev so you can see *why* it failed
       if (process.env.NODE_ENV !== 'production') {
-        return res.status(500).json(payload);
+        return res.status(500).json({
+          error: 'buildIcsForTask failed',
+          message: e?.message || String(e),
+          stack: e?.stack,
+          taskShape: {
+            _id: task._id,
+            taskName: task.taskName,
+            frequency: task.frequency,
+            duration: task.duration,
+            priority: task.priority,
+          },
+          tz,
+        });
       }
-      return res.status(500).send('Failed to build ICS');
+      return res.status(500).json({ error: 'Failed to build ICS' });
     }
 
-    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Disposition', `attachment; filename="task-${task._id}.ics"`);
-    return res.send(ics);
-  } catch (e) {
-    console.error('[ICS route] unexpected error:', e);
+    res
+      .status(200)
+      .type('text/calendar; charset=utf-8')
+      .set('Content-Disposition', `attachment; filename=task-${task._id}.ics`)
+      .send(ics);
+  } catch (err) {
     if (process.env.NODE_ENV !== 'production') {
-      return res.status(500).json({ message: 'Unexpected ICS error', error: e?.message || String(e) });
+      return res.status(500).json({ error: err?.message || String(err), tz, assetId, taskId });
     }
-    return res.status(500).send('Failed to build ICS');
+    res.status(500).json({ error: 'Failed to generate ICS' });
   }
 });
 
-
-router.use(verifyJWT);
-
-
-// router.get('/', getAssets); //replaced with task summary support
-
-router.get('/', assetsWithTasksSummary);
-
-// CRUD
-router.post('/', createAsset);
-router.patch('/', updateAsset);
-router.delete('/', deleteAsset);
-
-// Tasks (place BEFORE any param routes like "/:id")
-router.get('/:assetId/tasks', getTasksForAsset);
-router.post('/:assetId/tasks/generate', generateTasksForAsset);
-
-
-
 module.exports = router;
-*/

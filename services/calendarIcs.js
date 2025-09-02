@@ -1,209 +1,172 @@
-// backend/src/services/calendarIcs.js
+// services/calendarIcs.js
+'use strict';
 
-/* ---------- helpers ---------- */
+const crypto = require('crypto');
 
-function parseDurationMinutes(val) {
-  if (val == null) return 60; // default 60min
-  if (typeof val === 'number' && isFinite(val)) return Math.max(1, Math.round(val));
-  const s = String(val).toLowerCase();
-  const m = s.match(/(\d+(?:\.\d+)?)\s*(min|mins|minute|minutes|hr|hrs|hour|hours|h|m)\b/);
-  if (!m) {
-    const n = parseFloat(s);
-    return isFinite(n) && n > 0 ? Math.round(n) : 60;
-  }
-  const num = parseFloat(m[1]);
-  const unit = m[2];
-  if (/^m/.test(unit)) return Math.max(1, Math.round(num));
-  if (/^h/.test(unit)) return Math.max(1, Math.round(num * 60));
-  return 60;
-}
-
-// Return a structured frequency so we can build RRULE with Saturday constraints.
-function parseFrequency(str) {
-  const s = String(str || '').trim().toLowerCase();
-  if (!s) return { freq: null, interval: null, add: { months: 1 } };
-
-  if (/\bquarter(ly)?\b|\bqtr\b/.test(s)) return { freq: 'MONTHLY', interval: 3, add: { months: 3 } };
-  if (s.includes('daily'))   return { freq: 'DAILY',   interval: 1, add: { days: 1 } };
-  if (s.includes('weekly'))  return { freq: 'WEEKLY',  interval: 1, add: { weeks: 1 } };
-  if (s.includes('monthly')) return { freq: 'MONTHLY', interval: 1, add: { months: 1 } };
-  if (s.includes('yearly') || s.includes('annually') || s.includes('annual'))
-                             return { freq: 'YEARLY',  interval: 1, add: { years: 1 } };
-
-  const m = s.match(/(?:every\s*)?(\d+(?:\.\d+)?)\s*(day|days|week|weeks|month|months|year|years)\b/);
-  if (m) {
-    const n = Math.max(1, Math.round(parseFloat(m[1])));
-    const unit = m[2];
-    if (unit.startsWith('day'))   return { freq: 'DAILY',   interval: n, add: { days: n } };
-    if (unit.startsWith('week'))  return { freq: 'WEEKLY',  interval: n, add: { weeks: n } };
-    if (unit.startsWith('month')) return { freq: 'MONTHLY', interval: n, add: { months: n } };
-    if (unit.startsWith('year'))  return { freq: 'YEARLY',  interval: n, add: { years: n } };
-  }
-
-  // fallback: one-time-ish anchor ~+1 month
-  return { freq: null, interval: null, add: { months: 1 } };
-}
-
-function addInterval(base, add) {
-  const d = new Date(base.getTime());
-  if (add.years)  d.setFullYear(d.getFullYear() + add.years);
-  if (add.months) {
-    const day = d.getDate();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + add.months);
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(day, last));
-  }
-  if (add.weeks)  d.setDate(d.getDate() + add.weeks * 7);
-  if (add.days)   d.setDate(d.getDate() + add.days);
-  return d;
-}
-
-function saturdayOnOrBefore(date) {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const dow = d.getDay(); // 0..6 (Sun..Sat)
-  const delta = (dow - 6 + 7) % 7; // 0 if Sat
-  d.setDate(d.getDate() - delta);
-  return d;
-}
-
-// Determine the ordinal Saturday of a given date within its month.
-// Returns 1..4 normally; returns -1 if it is the 5th Saturday (treat as "last Saturday").
-function saturdaySetPos(date) {
-  const y = date.getFullYear();
-  const m = date.getMonth();
-  const day = date.getDate();
-
-  // find all Saturdays in the month
-  const sats = [];
-  let d = new Date(y, m, 1);
-  while (d.getMonth() === m) {
-    if (d.getDay() === 6) sats.push(d.getDate());
-    d.setDate(d.getDate() + 1);
-  }
-
-  const idx = sats.indexOf(day); // 0-based
-  if (idx === -1) {
-    // Should not happen (date should be Saturday), but fallback to last
-    return -1;
-  }
-  const nth = idx + 1; // 1..(4 or 5)
-  return nth >= 5 ? -1 : nth; // if 5th, use "last Saturday"
-}
-
-function pad2(n) { return (n < 10 ? '0' : '') + n; }
-function fmtUTC(dt) {
-  return dt.getUTCFullYear()
-    + pad2(dt.getUTCMonth() + 1)
-    + pad2(dt.getUTCDate())
-    + 'T'
-    + pad2(dt.getUTCHours())
-    + pad2(dt.getUTCMinutes())
-    + pad2(dt.getUTCSeconds())
-    + 'Z';
-}
-
-function escapeText(s) {
-  return String(s || '')
+/* ---------- small helpers ---------- */
+function esc(v) {
+  return String(v ?? '')
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
     .replace(/\r?\n/g, '\\n');
 }
-
-function listify(val) {
-  if (!val) return [];
-  if (Array.isArray(val)) return val.filter(Boolean).map(String);
-  if (typeof val === 'string') {
-    return val.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
-  }
-  return [];
+function toIcsUtc(date) {
+  // YYYYMMDDTHHMMSSZ
+  const s = date.toISOString();
+  return s.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 }
-
-function mapPriorityToIcs(p) {
+function fold75(line) {
+  const MAX = 75;
+  if (line.length <= MAX) return line;
+  let out = '';
+  for (let i = 0; i < line.length; i += MAX) {
+    out += (i ? '\r\n ' : '') + line.slice(i, i + MAX);
+  }
+  return out;
+}
+function toIcsPriority(p) {
   const n = Number(p);
-  if (n === 1) return 2; // critical
-  if (n === 2) return 5; // recommended
-  if (n === 3) return 8; // optional
-  return 5; // default
+  if (n === 1) return 1;  // critical -> highest
+  if (n === 2) return 5;  // recommended -> medium
+  if (n === 3) return 9;  // optional -> lowest
+  return 0;               // 0 = undefined per RFC 5545
+}
+function parseDurationMinutes(d) {
+  if (typeof d === 'number' && Number.isFinite(d)) return Math.max(1, Math.round(d));
+  if (typeof d === 'string') {
+    const m = d.match(/(\d+)/);
+    if (m) return Math.max(1, parseInt(m[1], 10));
+  }
+  return 60; // default 1 hour
 }
 
-/* ---------- main builder ---------- */
+/* ---------- try to load date-fns-tz (works in CJS/ESM) ---------- */
+let zonedTimeToUtc = null;
+try {
+  const mod = require('date-fns-tz'); // CJS export shape varies by bundler
+  zonedTimeToUtc =
+    (mod && typeof mod.zonedTimeToUtc === 'function' && mod.zonedTimeToUtc) ||
+    (mod && mod.default && typeof mod.default.zonedTimeToUtc === 'function' && mod.default.zonedTimeToUtc) ||
+    null;
+} catch (_) {
+  zonedTimeToUtc = null;
+}
 
+/* ---------- fallback: convert "YYYY-MM-DDTHH:mm" in IANA tz -> UTC Date using Intl ---------- */
+function partsToObj(parts) {
+  const m = {};
+  for (const p of parts) if (p.type !== 'literal') m[p.type] = p.value;
+  return {
+    year: +m.year,
+    month: +m.month,
+    day: +m.day,
+    hour: +m.hour,
+    minute: +m.minute,
+    second: +(m.second || 0),
+  };
+}
+function fallbackZonedTimeToUtc(wallISO, tz) {
+  // Treat the wall time digits as if they were UTC to get a base, then correct using the tz offset.
+  const baseUtc = new Date(wallISO + ':00.000Z');
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+  const obs = partsToObj(fmt.formatToParts(baseUtc));
+
+  const [dateStr, timeStr] = wallISO.split('T');
+  const [Y, M, D] = dateStr.split('-').map(Number);
+  const [h, m]   = timeStr.split(':').map(Number);
+
+  const desiredMs  = Date.UTC(Y, M - 1, D, h, m, 0);
+  const observedMs = Date.UTC(obs.year, obs.month - 1, obs.day, obs.hour, obs.minute, obs.second);
+  const diff = observedMs - desiredMs;
+
+  return new Date(baseUtc.getTime() - diff);
+}
+const toUtc = (wallISO, tz) =>
+  (typeof zonedTimeToUtc === 'function') ? zonedTimeToUtc(wallISO, tz) : fallbackZonedTimeToUtc(wallISO, tz);
+
+/**
+ * Build an ICS file with a single VEVENT that starts at 08:00 in the user's IANA timezone.
+ * - If task.date exists (Date or ISO), it uses that calendar day.
+ * - Otherwise, it anchors to the next Saturday.
+ * - Emits DTSTART/DTEND in UTC (Z) so all clients render correctly in local time.
+ *
+ * @param {Object} task
+ * @param {string} [task.taskName]
+ * @param {string|number} [task.duration]  // minutes or string like "45 min"
+ * @param {1|2|3|number} [task.priority]   // 1,2,3 map to 1,5,9
+ * @param {string} [task.description]
+ * @param {string|Date} [task.date]        // optional calendar day (local wall date)
+ *
+ * @param {Object} [opts]
+ * @param {string} [opts.calendarName='Easy Upkeep AI']
+ * @param {string} [opts.tz]               // required; e.g., "America/Los_Angeles"
+ *
+ * @returns {string} VCALENDAR text
+ */
 function buildIcsForTask(task, opts = {}) {
-  const calendarName = opts.calendarName || 'Custodian';
-  const now = new Date();
+  const calendarName = opts.calendarName || 'Easy Upkeep AI';
+  const tz = opts.tz || process.env.DEFAULT_TZ || null;
+  if (!tz) throw new Error('Missing timezone (tz). Pass ?tz=America/Los_Angeles or set DEFAULT_TZ');
 
-  const summary = task?.taskName || task?.name || 'Task';
+  const title = task?.taskName || 'Task';
+  const description = task?.description || '';
   const durationMin = parseDurationMinutes(task?.duration);
-  const { freq, interval, add } = parseFrequency(task?.frequency);
+  const priority = toIcsPriority(task?.priority);
 
-  // Anchor first event: Saturday on/before target, at 8:00 AM local
-  const target = addInterval(now, add || { months: 1 });
-  const startLocal = saturdayOnOrBefore(target);
-  startLocal.setHours(8, 0, 0, 0);
-  const endLocal = new Date(startLocal.getTime() + durationMin * 60 * 1000);
-
-  const dtstamp = fmtUTC(now);
-  const dtstart = fmtUTC(startLocal);
-  const dtend   = fmtUTC(endLocal);
-
-  const uid = `task-${task?._id || task?.id || Math.random().toString(36).slice(2)}@custodian`;
-  const icsPriority = mapPriorityToIcs(task?.priority);
-
-  // Build DESCRIPTION with description + steps + tools (+ human hints)
-  const descParts = [];
-  if (typeof task?.description === 'string' && task.description.trim()) {
-    descParts.push(task.description.trim());
-  }
-  const steps = listify(task?.steps);
-  if (steps.length) {
-    const stepsBlock = 'Steps:\n' + steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
-    descParts.push(stepsBlock);
-  }
-  const tools = listify(task?.tools);
-  if (tools.length) {
-    const toolsBlock = 'Tools:\n' + tools.map(t => `- ${t}`).join('\n');
-    descParts.push(toolsBlock);
-  }
-  if (task?.frequency) descParts.push(`Frequency: ${String(task.frequency)}`);
-  if (task?.duration != null) descParts.push(`Duration: ${String(task.duration)}`);
-  const fullDescription = descParts.join('\n\n');
-
-  // Build RRULE that **always** occurs on Saturdays.
-  let rrule = null;
-  if (freq && interval) {
-    rrule = `FREQ=${freq};INTERVAL=${interval}`;
-    if (freq === 'DAILY' || freq === 'WEEKLY') {
-      // Filter to Saturdays only
-      rrule += ';BYDAY=SA';
-    } else if (freq === 'MONTHLY' || freq === 'YEARLY') {
-      // Stay on the same ordinal Saturday each recurrence (or last Saturday if 5th)
-      const setpos = saturdaySetPos(startLocal);
-      rrule += `;BYDAY=SA;BYSETPOS=${setpos}`;
+  // --- Determine the anchor calendar day ---
+  let anchor;
+  if (task?.date) {
+    const d = (task.date instanceof Date) ? task.date : new Date(task.date);
+    if (!Number.isNaN(d.getTime())) {
+      anchor = new Date(d.getFullYear(), d.getMonth(), d.getDate()); // Y-M-D at midnight (system tz)
     }
   }
+  if (!anchor) {
+    // Fallback: next Saturday
+    const now = new Date();
+    const dow = now.getDay();                  // 0..6 (Sun..Sat)
+    const add = (6 - dow + 7) % 7;            // days to Saturday
+    anchor = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add);
+  }
+
+  const yyyy = anchor.getFullYear();
+  const mm = String(anchor.getMonth() + 1).padStart(2, '0');
+  const dd = String(anchor.getDate()).padStart(2, '0');
+  const wall = `${yyyy}-${mm}-${dd}T08:00`; // 8:00 AM local in user's tz
+
+  // Convert "08:00 in tz" => UTC instants
+  const startUtc = toUtc(wall, tz);
+  const endUtc = new Date(startUtc.getTime() + durationMin * 60 * 1000);
 
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    `PRODID:-//${escapeText(calendarName)}//EN`,
-    `X-WR-CALNAME:${escapeText('Easy Upkeep')}`,
+    `PRODID:-//${esc(calendarName)}//EN`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'BEGIN:VEVENT',
-    `UID:${uid}`,
-    `DTSTAMP:${dtstamp}`,
-    `DTSTART:${dtstart}`,
-    `DTEND:${dtend}`,
-    `SUMMARY:${escapeText(summary)}`,
-    `PRIORITY:${icsPriority}`
-  ];
-  if (fullDescription) lines.push(`DESCRIPTION:${escapeText(fullDescription)}`);
-  if (rrule)           lines.push(`RRULE:${rrule}`);
-  lines.push('END:VEVENT', 'END:VCALENDAR');
+    `X-WR-CALNAME:${esc(calendarName)}`,
+    `X-WR-TIMEZONE:${esc(tz)}`,
 
-  return lines.join('\r\n');
+    'BEGIN:VEVENT',
+    `UID:${(crypto.randomUUID?.() || crypto.randomBytes(16).toString('hex'))}@easy-upkeep-ai`,
+    `DTSTAMP:${toIcsUtc(new Date())}`,
+    `DTSTART:${toIcsUtc(startUtc)}`,
+    `DTEND:${toIcsUtc(endUtc)}`,
+    `SUMMARY:${esc(title)}`,
+    description ? `DESCRIPTION:${esc(description)}` : null,
+    priority ? `PRIORITY:${priority}` : null,
+    'END:VEVENT',
+
+    'END:VCALENDAR'
+  ].filter(Boolean);
+
+  return lines.map(fold75).join('\r\n') + '\r\n';
 }
 
 module.exports = { buildIcsForTask };
