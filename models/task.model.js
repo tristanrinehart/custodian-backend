@@ -14,6 +14,9 @@ const taskSchema = new mongoose.Schema({
   who:         { type: String, enum: ['owner','professional'], default: 'owner' },
   steps:       { type: [String], default: [] },
   tools:       { type: [String], default: [] },
+  manufacturerSnippet:   { type: String },
+  manufacturerSourceUrl: { type: String },
+  manufacturerDocTitle:  { type: String },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Task', taskSchema); // <<— important

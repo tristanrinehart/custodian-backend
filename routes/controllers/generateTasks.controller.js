@@ -53,12 +53,17 @@ const generateTasks = async (req, res, next) => {
     }
 
     // Normalize asset shape for the model: ensure assetId is the app id (string)
+
     const normalizedAssets = assets.map((a) => {
       const id = a?.assetId ?? a?.id;
       if (id == null || !a?.assetName) {
         throw new Error("Each asset must include 'id' (or 'assetId') and 'assetName'.");
       }
-      return { assetId: String(id), assetName: String(a.assetName) };
+      return {
+        assetId: String(id),
+        assetName: String(a.assetName),
+        ...(a.assetModelNumber ? { assetModelNumber: String(a.assetModelNumber) } : {}), // ← NEW
+      };
     });
 
     // Wrap the provided schema under the function parameter as 'plan'
